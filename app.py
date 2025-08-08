@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request
 from config import Config
-from services.bis_service import BISService
 
 # Flask 앱 초기화
 app = Flask(__name__)
@@ -17,11 +16,6 @@ def home():
         'status': 'running'
     })
     
-@app.route('/api/test-bis')
-def test_bis_connection():
-    """BIS API 테스트"""
-    result = bis_service.test_connection()
-    return jsonify(result)
     
 if __name__ == '__main__':
     app.run(
