@@ -5,8 +5,6 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# 서비스 초기화
-bis_service = BISService()
 
 @app.route('/')
 def home():
