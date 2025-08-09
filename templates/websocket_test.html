@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚌 WebSocket 버스 모니터링 테스트</title>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='websocket_test.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 실시간 버스 모니터링 테스트</h1>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <label for="lat">위도:</label>
+                <input type="number" id="lat" placeholder="위도" value="37.497928" step="any">
+            </div>
+            
+            <div class="input-group">
+                <label for="lng">경도:</label>
+                <input type="number" id="lng" placeholder="경도" value="127.027583" step="any">
+            </div>
+            
+            <div class="input-group">
+                <label for="busNumber">버스 번호:</label>
+                <input type="text" id="busNumber" placeholder="버스번호" value="9201">
+            </div>
+            
+            <div class="input-group">
+                <label for="interval">업데이트 간격(초):</label>
+                <input type="number" id="interval" placeholder="간격(초)" value="30" min="10" max="300">
+                <small>최소 10초, 권장 30초</small>
+            </div>
+            
+            <div class="button-group">
+                <button onclick="startMonitoring()" id="startBtn" class="btn-primary">🚀 모니터링 시작</button>
+                <button onclick="stopMonitoring()" id="stopBtn" class="btn-danger" disabled>⏹️ 모니터링 중단</button>
+                <button onclick="getStatus()" class="btn-secondary">📊 상태 확인</button>
+                <button onclick="clearUpdates()" class="btn-secondary">🗑️ 로그 지우기</button>
+            </div>
+        </div>
+        
+        <div id="status" class="status stopped">연결 대기 중...</div>
+        
+        <div class="updates-section">
+            <h3>실시간 업데이트 로그</h3>
+            <div id="updates"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='websocket_test.js') }}"></script>
+</body>
+</html>
