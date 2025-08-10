@@ -1,6 +1,8 @@
+/* 기존 CSS + 플로우 2 스타일 추가 */
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -28,6 +30,55 @@ h3 {
     border-bottom: 2px solid #ecf0f1;
     padding-bottom: 10px;
 }
+
+/* ===================== 플로우 섹션 스타일 (신규) ===================== */
+
+.flow-section {
+    margin-bottom: 40px;
+    padding: 25px;
+    border-radius: 10px;
+    border-left: 4px solid #3498db;
+}
+
+.flow1-section {
+    background: #e8f4fd;
+    border-left-color: #3498db;
+}
+
+.flow2-section {
+    background: #e8f8f5;
+    border-left-color: #27ae60;
+}
+
+.flow-title {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+}
+
+/* ===================== 연결 상태 표시기 (신규) ===================== */
+
+.connection-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 10px;
+    animation: pulse 2s infinite;
+}
+
+.connection-indicator.connected {
+    background: #27ae60;
+}
+
+.connection-indicator.disconnected {
+    background: #e74c3c;
+}
+
+/* ===================== 기존 입력 스타일 ===================== */
 
 .input-section {
     background: #f8f9fa;
@@ -71,6 +122,8 @@ small {
     display: block;
     margin-top: 5px;
 }
+
+/* ===================== 버튼 스타일 ===================== */
 
 .button-group {
     display: flex;
@@ -120,11 +173,25 @@ button {
     transform: translateY(-2px);
 }
 
+/* ===================== 플로우 2 전용 버튼 (신규) ===================== */
+
+.btn-success {
+    background: linear-gradient(135deg, #27ae60, #229954);
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: linear-gradient(135deg, #229954, #27ae60);
+    transform: translateY(-2px);
+}
+
 button:disabled {
     background: #bdc3c7 !important;
     cursor: not-allowed !important;
     transform: none !important;
 }
+
+/* ===================== 상태 표시 ===================== */
 
 .status {
     margin: 25px 0;
@@ -166,12 +233,14 @@ button:disabled {
     50% { opacity: 0.7; }
 }
 
+/* ===================== 업데이트 로그 ===================== */
+
 .updates-section {
     margin-top: 30px;
 }
 
 #updates {
-    height: 350px;
+    height: 400px;
     overflow-y: auto;
     border: 2px solid #e1e8ed;
     border-radius: 10px;
@@ -222,6 +291,41 @@ button:disabled {
     border-left-color: #64748b;
 }
 
+/* ===================== 플로우 2 전용 스타일 (신규) ===================== */
+
+.update-item.flow2 {
+    background: #f0fff4;
+    border-left-color: #22c55e;
+}
+
+.json-display {
+    background: #1e1e1e;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #444;
+}
+
+.json-display::-webkit-scrollbar {
+    width: 6px;
+}
+
+.json-display::-webkit-scrollbar-track {
+    background: #2d2d2d;
+}
+
+.json-display::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 3px;
+}
+
+/* ===================== 반응형 디자인 ===================== */
 
 @media (max-width: 768px) {
     body {
@@ -230,6 +334,10 @@ button:disabled {
     
     .container {
         padding: 20px;
+    }
+    
+    .flow-section {
+        padding: 15px;
     }
     
     .button-group {
@@ -243,5 +351,13 @@ button:disabled {
     
     h1 {
         font-size: 1.8em;
+    }
+    
+    .flow-title {
+        font-size: 1.3em;
+    }
+    
+    #updates {
+        height: 300px;
     }
 }

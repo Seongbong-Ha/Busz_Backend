@@ -1,73 +1,99 @@
-const socket = io();
-let isMonitoring = false;
+// 기존 WebSocket 코드 + 플로우 2 기능 추가
 
-// SocketIO 이벤트 리스너들
-socket.on('connected', (data) => {
-    setStatus('connected', '✅ ' + data.message);
-    addUpdate('success', '✅ 서버 연결 완료');
-});
+// ===================== 전역 변수 =====================
+let socket = null;
+let isFlow1Active = false;
+let sessionId = null;
 
-socket.on('monitoring_started', (data) => {
-    isMonitoring = true;
-    updateButtons();
-    setStatus('active', '🔄 ' + data.message);
-    addUpdate('info', `🔄 ${data.bus_number}번 버스 모니터링 시작 (${data.interval}초 간격)`);
-});
-
-socket.on('bus_update', (data) => {
-    if (data.bus_found) {
-        const urgencyEmoji = getUrgencyEmoji(data.urgency);
-        const msg = `${urgencyEmoji} ${data.bus_number}번: ${data.arrival_time_formatted} (${data.remaining_stations}개 정류장)`;
-        setStatus('active', msg);
-        addUpdate('success', `${msg} - ${data.voice_message}`);
-    } else if (data.error) {
-        setStatus('error', '❌ ' + data.error);
-        addUpdate('error', '❌ ' + data.error);
+// Socket.IO 안전 초기화
+function initSocket() {
+    if (typeof io !== 'undefined') {
+        socket = io();
+        setupSocketEvents();
+        addUpdate('info', '🔌 Socket.IO 초기화 완료');
     } else {
-        setStatus('error', '❌ ' + data.message);
-        addUpdate('error', '❌ ' + data.message);
+        addUpdate('error', '❌ Socket.IO 로드 실패, 3초 후 재시도...');
+        setTimeout(initSocket, 3000);
     }
-});
+}
 
-socket.on('monitoring_stopped', (data) => {
-    isMonitoring = false;
-    updateButtons();
-    setStatus('stopped', '⏹️ ' + data.message);
-    addUpdate('info', '⏹️ 모니터링 중단됨');
-});
+// ===================== WebSocket 이벤트 설정 =====================
+function setupSocketEvents() {
+    socket.on('connect', () => {
+        sessionId = socket.id;
+        updateConnectionStatus(true);
+        setFlow1Status('connected', '✅ WebSocket 연결 완료');
+        addUpdate('success', `✅ WebSocket 연결 완료 (세션: ${sessionId})`);
+    });
 
-socket.on('session_status', (data) => {
-    if (data.active) {
-        addUpdate('info', `📊 세션 활성: ${data.bus_number}번 버스 (${data.interval}초 간격)`);
-        isMonitoring = true;
-    } else {
-        addUpdate('info', '📊 세션 비활성');
-        isMonitoring = false;
+    socket.on('disconnect', () => {
+        updateConnectionStatus(false);
+        setFlow1Status('error', '❌ WebSocket 연결 끊어짐');
+        addUpdate('error', '❌ WebSocket 연결 끊어짐');
+        isFlow1Active = false;
+        updateFlow1Buttons();
+    });
+
+    socket.on('monitoring_started', (data) => {
+        isFlow1Active = true;
+        updateFlow1Buttons();
+        setFlow1Status('active', '🔄 ' + data.message);
+        addUpdate('success', `🔄 플로우 1 시작: ${data.bus_number}번 버스 (${data.interval}초 간격)`);
+    });
+
+    socket.on('bus_update', (data) => {
+        if (data.bus_found) {
+            const urgencyEmoji = getUrgencyEmoji(data.urgency);
+            const msg = `${urgencyEmoji} ${data.bus_number}번: ${data.arrival_time_formatted} (${data.remaining_stations}개 정류장)`;
+            setFlow1Status('active', msg);
+            addUpdate('success', `${msg} - ${data.voice_message}`);
+        } else if (data.error) {
+            setFlow1Status('error', '❌ ' + data.error);
+            addUpdate('error', '❌ ' + data.error);
+        } else {
+            setFlow1Status('error', '❌ ' + data.message);
+            addUpdate('error', '❌ ' + data.message);
+        }
+    });
+
+    socket.on('monitoring_stopped', (data) => {
+        isFlow1Active = false;
+        updateFlow1Buttons();
+        setFlow1Status('stopped', '⏹️ ' + data.message);
+        addUpdate('info', '⏹️ 플로우 1 중단됨');
+    });
+
+    socket.on('session_status', (data) => {
+        if (data.active) {
+            addUpdate('info', `📊 플로우 1 활성: ${data.bus_number}번 버스 (${data.interval}초 간격)`);
+            isFlow1Active = true;
+        } else {
+            addUpdate('info', '📊 플로우 1 비활성');
+            isFlow1Active = false;
+        }
+        updateFlow1Buttons();
+    });
+
+    socket.on('reconnect', () => {
+        setFlow1Status('connected', '✅ 서버에 재연결되었습니다');
+        addUpdate('success', '✅ 서버 재연결 완료');
+    });
+
+    socket.on('error', (data) => {
+        setFlow1Status('error', '❌ ' + data.message);
+        addUpdate('error', '❌ 에러: ' + data.message);
+        isFlow1Active = false;
+        updateFlow1Buttons();
+    });
+}
+
+// ===================== 플로우 1 함수들 (기존) =====================
+function startFlow1() {
+    if (!socket) {
+        alert('Socket.IO가 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+        return;
     }
-    updateButtons();
-});
-
-socket.on('error', (data) => {
-    setStatus('error', '❌ ' + data.message);
-    addUpdate('error', '❌ 에러: ' + data.message);
-    isMonitoring = false;
-    updateButtons();
-});
-
-socket.on('disconnect', () => {
-    setStatus('error', '❌ 서버 연결이 끊어졌습니다');
-    addUpdate('error', '❌ 서버 연결 끊어짐');
-    isMonitoring = false;
-    updateButtons();
-});
-
-socket.on('reconnect', () => {
-    setStatus('connected', '✅ 서버에 재연결되었습니다');
-    addUpdate('success', '✅ 서버 재연결 완료');
-});
-
-// 메인 함수들
-function startMonitoring() {
+    
     const lat = parseFloat(document.getElementById('lat').value);
     const lng = parseFloat(document.getElementById('lng').value);
     const busNumber = document.getElementById('busNumber').value.trim();
@@ -107,33 +133,169 @@ function startMonitoring() {
         interval: interval
     });
     
-    addUpdate('info', `🚀 ${busNumber}번 버스 모니터링 요청 전송...`);
+    addUpdate('info', `🚀 플로우 1 시작 요청: ${busNumber}번 버스 모니터링`);
 }
 
-function stopMonitoring() {
+function stopFlow1() {
+    if (!socket) {
+        alert('Socket.IO 연결이 없습니다.');
+        return;
+    }
+    
     socket.emit('stop_bus_monitoring');
-    addUpdate('info', '⏹️ 모니터링 중단 요청 전송...');
+    addUpdate('info', '⏹️ 플로우 1 중단 요청...');
 }
 
-function getStatus() {
+function getFlow1Status() {
+    if (!socket) {
+        alert('Socket.IO 연결이 없습니다.');
+        return;
+    }
+    
     socket.emit('get_session_status');
-    addUpdate('info', '📊 세션 상태 요청...');
+    addUpdate('info', '📊 플로우 1 상태 요청...');
 }
 
-function clearUpdates() {
-    document.getElementById('updates').innerHTML = '';
-    addUpdate('info', '🗑️ 로그가 지워졌습니다');
+// ===================== 플로우 2 함수들 (신규) =====================
+async function callFlow2() {
+    if (!isFlow1Active) {
+        alert('플로우 1을 먼저 시작해주세요!');
+        setFlow2Status('error', '❌ 플로우 1이 활성화되지 않음');
+        return;
+    }
+
+    if (!sessionId) {
+        alert('세션 ID가 없습니다. WebSocket 연결을 확인해주세요.');
+        setFlow2Status('error', '❌ 세션 ID 없음');
+        return;
+    }
+
+    try {
+        setFlow2Status('active', '🔄 플로우 2 호출 중...');
+        addUpdate('flow2', '📋 플로우 2 API 호출 시작...');
+
+        const response = await fetch('/api/station/buses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-ID': sessionId  // 세션 ID 전달
+            },
+            body: '{}'  // 빈 POST 요청
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            setFlow2Status('connected', '✅ 플로우 2 성공');
+            addUpdate('flow2', `✅ 플로우 2 성공: ${data.total_count}개 버스 정보 수신`);
+            
+            // 버스 정보 로그 출력
+            if (data.buses && data.buses.length > 0) {
+                const busInfo = data.buses.map(bus => `${bus.route_name}번(${bus.arrival_time}초)`).join(', ');
+                addUpdate('flow2', `🚌 수신된 버스: ${busInfo}`);
+            }
+            
+            displayFlow2Result(data);
+        } else {
+            setFlow2Status('error', `❌ ${data.error || '플로우 2 실패'}`);
+            addUpdate('error', `❌ 플로우 2 실패: ${data.error_code} - ${data.error}`);
+            displayFlow2Result(data);
+        }
+
+    } catch (error) {
+        setFlow2Status('error', '❌ 네트워크 오류');
+        addUpdate('error', `❌ 플로우 2 네트워크 오류: ${error.message}`);
+        console.error('Flow 2 Error:', error);
+    }
 }
 
-// 유틸리티 함수들
-function setStatus(type, message) {
-    const statusDiv = document.getElementById('status');
-    statusDiv.className = `status ${type}`;
-    statusDiv.textContent = message;
+async function testFlow2Direct() {
+    try {
+        setFlow2Status('active', '🧪 직접 테스트 중...');
+        addUpdate('flow2', '🧪 플로우 2 직접 테스트 (세션 없이)...');
+
+        const response = await fetch('/api/station/buses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: '{}'
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            setFlow2Status('connected', '✅ 직접 테스트 성공');
+            addUpdate('flow2', '✅ 직접 테스트 성공 (예상치 못한 성공)');
+        } else {
+            setFlow2Status('error', `❌ ${data.error || '직접 테스트 실패'}`);
+            addUpdate('flow2', `❌ 직접 테스트 실패 (예상된 결과): ${data.error_code}`);
+        }
+        
+        displayFlow2Result(data);
+
+    } catch (error) {
+        setFlow2Status('error', '❌ 직접 테스트 오류');
+        addUpdate('error', `❌ 직접 테스트 오류: ${error.message}`);
+    }
+}
+
+function displayFlow2Result(data) {
+    const resultDiv = document.getElementById('flow2Result');
+    const jsonDiv = document.getElementById('flow2Json');
+    
+    if (resultDiv && jsonDiv) {
+        jsonDiv.textContent = JSON.stringify(data, null, 2);
+        resultDiv.style.display = 'block';
+    }
+}
+
+// ===================== UI 업데이트 함수들 =====================
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('connectionIndicator');
+    if (indicator) {
+        indicator.className = `connection-indicator ${connected ? 'connected' : 'disconnected'}`;
+    }
+}
+
+function setFlow1Status(type, message) {
+    const statusDiv = document.getElementById('flow1Status');
+    if (statusDiv) {
+        statusDiv.className = `status ${type}`;
+        statusDiv.textContent = message;
+    }
+}
+
+function setFlow2Status(type, message) {
+    const statusDiv = document.getElementById('flow2Status');
+    if (statusDiv) {
+        statusDiv.className = `status ${type}`;
+        statusDiv.textContent = message;
+    }
+}
+
+function updateFlow1Buttons() {
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    
+    if (startBtn && stopBtn) {
+        startBtn.disabled = isFlow1Active;
+        stopBtn.disabled = !isFlow1Active;
+        
+        if (isFlow1Active) {
+            startBtn.textContent = '🔄 플로우 1 실행 중...';
+            stopBtn.textContent = '⏹️ 플로우 1 중단';
+        } else {
+            startBtn.textContent = '🚀 플로우 1 시작';
+            stopBtn.textContent = '⏹️ 플로우 1 중단';
+        }
+    }
 }
 
 function addUpdate(type, message) {
     const updates = document.getElementById('updates');
+    if (!updates) return;
+    
     const time = new Date().toLocaleTimeString('ko-KR');
     const date = new Date().toLocaleDateString('ko-KR');
     
@@ -144,27 +306,41 @@ function addUpdate(type, message) {
     updates.appendChild(updateItem);
     updates.scrollTop = updates.scrollHeight;
     
-    // 최대 100개 로그만 유지
+    // 최대 200개 로그만 유지
     const items = updates.children;
-    if (items.length > 100) {
+    if (items.length > 200) {
         updates.removeChild(items[0]);
     }
 }
 
-function updateButtons() {
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    
-    startBtn.disabled = isMonitoring;
-    stopBtn.disabled = !isMonitoring;
-    
-    if (isMonitoring) {
-        startBtn.textContent = '🔄 모니터링 중...';
-        stopBtn.textContent = '⏹️ 모니터링 중단';
-    } else {
-        startBtn.textContent = '🚀 모니터링 시작';
-        stopBtn.textContent = '⏹️ 모니터링 중단';
+function clearUpdates() {
+    const updates = document.getElementById('updates');
+    if (updates) {
+        updates.innerHTML = '';
+        addUpdate('info', '🗑️ 로그가 지워졌습니다');
     }
+}
+
+function exportLogs() {
+    const updates = document.getElementById('updates');
+    if (!updates) {
+        alert('로그가 없습니다.');
+        return;
+    }
+    
+    const logs = Array.from(updates.children).map(item => item.textContent).join('\n');
+    
+    const blob = new Blob([logs], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `busz_test_logs_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    addUpdate('info', '💾 로그 파일이 다운로드되었습니다');
 }
 
 function getUrgencyEmoji(urgency) {
@@ -176,22 +352,27 @@ function getUrgencyEmoji(urgency) {
     }
 }
 
-// 페이지 로드시 초기화
+// ===================== 초기화 =====================
 document.addEventListener('DOMContentLoaded', function() {
-    addUpdate('info', '페이지가 로드되었습니다. 서버 연결을 시도하는 중...');
-    updateButtons();
+    addUpdate('info', '🚌 Busz 백엔드 통합 테스트 페이지 로드 완료');
+    addUpdate('info', '📋 사용법: 플로우 1 → 플로우 2 순서로 테스트하세요');
+    updateFlow1Buttons();
+    updateConnectionStatus(false);
     
-    // Enter 키로 모니터링 시작
-    document.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !isMonitoring) {
-            startMonitoring();
-        }
-    });
+    // Socket.IO 초기화
+    initSocket();
 });
 
-// 페이지 언로드시 모니터링 정리
+// 페이지 언로드시 정리
 window.addEventListener('beforeunload', function() {
-    if (isMonitoring) {
+    if (socket && isFlow1Active) {
         socket.emit('stop_bus_monitoring');
+    }
+});
+
+// Enter 키로 플로우 1 시작
+document.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !isFlow1Active) {
+        startFlow1();
     }
 });

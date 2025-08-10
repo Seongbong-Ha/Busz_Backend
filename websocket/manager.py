@@ -83,6 +83,25 @@ class SessionManager:
     def get_active_sessions_count(self) -> int:
         """활성 세션 수 조회"""
         return len(self.active_sessions)
+    
+    def is_session_valid_for_flow2(self, session_id):
+        """플로우 2 호출 가능한 세션인지 확인"""
+        if not session_id:
+            return False
+            
+        return (session_id in self.active_sessions and 
+                self.active_sessions[session_id].get('active', False))
+    
+    def get_session_station_info(self, session_id):
+        """세션의 정류소 정보 반환"""
+        if session_id in self.active_sessions:
+            return self.active_sessions[session_id].get('station_info')
+        return None
+    
+    def update_session_station_info(self, session_id, station_info):
+        """세션에 정류소 정보 저장 """
+        if session_id in self.active_sessions:
+            self.active_sessions[session_id]['station_info'] = station_info
 
 # 글로벌 세션 매니저 인스턴스
 session_manager = SessionManager()
