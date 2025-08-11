@@ -101,17 +101,6 @@ class BusMonitoringWorker:
                 if fastest_bus:
                     formatted_time = self.client.format_arrival_time(fastest_bus['arrival_time'])
                     
-                    # 긴급도 판단
-                    if fastest_bus['arrival_time'] < 300:
-                        urgency = "urgent"
-                        urgency_text = "곧"
-                    elif fastest_bus['arrival_time'] < 600:
-                        urgency = "moderate"
-                        urgency_text = "조금 기다리시면"
-                    else:
-                        urgency = "normal"
-                        urgency_text = "시간이 좀 걸리지만"
-                    
                     return {
                         'timestamp': timestamp,
                         'bus_found': True,
@@ -123,8 +112,6 @@ class BusMonitoringWorker:
                         'remaining_stations': fastest_bus['remaining_stations'],
                         'vehicle_type': fastest_bus['vehicle_type'],
                         'route_type': fastest_bus['route_type'],
-                        'urgency': urgency,
-                        'voice_message': f"{urgency_text} {self.bus_number}번 버스가 {formatted_time} 후에 도착합니다.",
                         'total_buses': len(specific_buses)
                     }
             

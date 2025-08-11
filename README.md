@@ -12,7 +12,7 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
     ↓                       ↓                       ↓
 ┌─────────────┐      ┌─────────────────┐      ┌──────────────┐
 │ 사용자 경험  │ ←→   │   데이터 허브    │ ←→   │ TAGO API     │
-│ • CV 처리   │      │ • 실시간 수집   │      │ • BIS API    │
+│ • UI/UX     │      │ • 실시간 수집   │      │ • BIS API    │
 │ • 음성처리  │      │ • 데이터 가공   │      │ • 교통정보   │
 │ • 센서활용  │      │ • 세션 관리     │      │              │
 │ • 햅틱제어  │      │ • 상태 추적     │      │              │
@@ -22,7 +22,7 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 ## 🚀 API 명세서
 
 ### 🌐 서버 정보
-- **Base URL**: `http://localhost:5000` (개발환경)
+- **Base URL**: `http://localhost:8000` (개발환경)
 - **Protocol**: HTTP/HTTPS + WebSocket
 - **Data Format**: JSON
 - **CORS**: 모든 Origin 허용 (개발환경)
@@ -42,7 +42,7 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 ## 🔌 WebSocket API (플로우 1: 실시간 모니터링)
 
 ### 연결 정보
-- **URL**: `ws://localhost:5000`
+- **URL**: `ws://localhost:8000`
 - **Protocol**: Socket.IO
 
 ### 📤 앱 → 서버 JSON 형식
@@ -59,12 +59,12 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 
 #### `stop_bus_monitoring` - 모니터링 중단
 ```json
-// 빈 이벤트 (데이터 없음)
+// 매개변수 없음 (이벤트만 전송)
 ```
 
 #### `get_session_status` - 현재 상태 확인
 ```json
-// 빈 이벤트 (데이터 없음)
+// 매개변수 없음 (이벤트만 전송)
 ```
 
 ### 📥 서버 → 앱 JSON 형식
@@ -102,8 +102,6 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
     "remaining_stations": 2,
     "vehicle_type": "일반버스",
     "route_type": "간선버스", 
-    "urgency": "moderate",                  // "urgent", "moderate", "normal"
-    "voice_message": "조금 기다리시면 9201번 버스가 3분 후에 도착합니다.",
     "total_buses": 1
 }
 ```
@@ -257,18 +255,13 @@ X-Session-ID: abc123def456
 ### 🔑 중요한 필드들
 
 - **session_id**: WebSocket 연결 시 받아서 REST API 헤더에 사용
-- **voice_message**: 바로 TTS로 음성 안내 가능
-- **urgency**: 알림 강도 조절
-  - `"urgent"` (5분 이내) → 강한 알림/진동
-  - `"moderate"` (5-10분) → 보통 알림
-  - `"normal"` (10분 이상) → 약한 알림
 - **arrival_time**: 초 단위 (분 변환: `arrival_time / 60`)
 - **bus_found**: false면 다른 버스 추천 로직 실행
 
 ### 📱 추천 사용 패턴
 
 1. **WebSocket 연결** → `session_id` 저장
-2. **플로우 1 시작** → 실시간 음성 안내
+2. **플로우 1 시작** → 실시간 데이터 수신
 3. **필요시 플로우 2** → 전체 버스 목록 확인
 4. **적절한 시점에 모니터링 중단**
 
