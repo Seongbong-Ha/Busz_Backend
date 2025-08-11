@@ -31,10 +31,10 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 
 #### **전체 사용 흐름**
 ```
-1. WebSocket 연결
-2. 플로우 1: start_bus_monitoring (실시간 모니터링 시작)
-3. 플로우 2: POST /api/station/buses (전체 버스 정보 조회)
-4. 사용자가 원하는 시점에 stop_bus_monitoring
+1. WebSocket 연결 → 자동으로 connected 이벤트 수신
+2. 플로우 1: start_bus_monitoring 전송 → 실시간 모니터링 시작
+3. 플로우 2: POST /api/station/buses → 전체 버스 정보 조회
+4. 사용자가 원하는 시점에 stop_bus_monitoring 전송
 ```
 
 ---
@@ -45,10 +45,27 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 - **URL**: `ws://localhost:8000`
 - **Protocol**: Socket.IO
 
-### 📤 앱 → 서버 JSON 형식
+### 🔄 **이벤트 플로우**
 
-#### `start_bus_monitoring` - 실시간 모니터링 시작
+#### **1단계: 연결 (자동)**
+```kotlin
+// 안드로이드에서 연결만 하면
+socket = IO.socket("https://your-server-url")
+socket.connect()
+```
+
+#### **2단계: 연결 확인 (자동 수신)**
 ```json
+// 서버가 자동으로 전송하는 이벤트
+{
+    "message": "서버에 연결되었습니다",
+    "session_id": "abc123def456"  // ⚠️ 중요: 플로우 2에서 사용
+}
+```
+
+#### **3단계: 모니터링 시작 (수동 전송)**
+```json
+// 앱에서 직접 전송해야 하는 이벤트
 {
     "lat": 37.497928,        // 위도 (필수)
     "lng": 127.027583,       // 경도 (필수)  
@@ -57,28 +74,9 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 }
 ```
 
-#### `stop_bus_monitoring` - 모니터링 중단
+#### **4단계: 모니터링 시작 확인 (자동 응답)**
 ```json
-// 매개변수 없음 (이벤트만 전송)
-```
-
-#### `get_session_status` - 현재 상태 확인
-```json
-// 매개변수 없음 (이벤트만 전송)
-```
-
-### 📥 서버 → 앱 JSON 형식
-
-#### `connected` - 연결 완료
-```json
-{
-    "message": "서버에 연결되었습니다",
-    "session_id": "abc123def456"  // ⚠️ 중요: REST API에서 사용
-}
-```
-
-#### `monitoring_started` - 모니터링 시작됨
-```json
+// 서버가 자동으로 응답하는 이벤트
 {
     "message": "9201번 버스 실시간 모니터링을 시작합니다",
     "bus_number": "9201",
@@ -87,7 +85,8 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 }
 ```
 
-#### `bus_update` - 실시간 버스 정보 (핵심!)
+#### **5단계: 실시간 버스 정보 (자동, 주기적)**
+30초마다 자동으로 전송되는 이벤트:
 
 **버스 발견된 경우:**
 ```json
@@ -95,14 +94,13 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
     "timestamp": "2025-01-10T15:30:45.123456",
     "bus_found": true,
     "station_name": "강남역",
-    "station_id": "station123",
+    "station_id": "station123", 
     "bus_number": "9201",
     "arrival_time": 180,                    // 초 단위
     "arrival_time_formatted": "3분",
     "remaining_stations": 2,
     "vehicle_type": "일반버스",
-    "route_type": "간선버스", 
-    "total_buses": 1
+    "route_type": "간선버스"
 }
 ```
 
@@ -111,45 +109,30 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 {
     "timestamp": "2025-01-10T15:30:45.123456",
     "bus_found": false,
-    "station_name": "강남역", 
-    "station_id": "station123",
-    "bus_number": "9201",
+    "station_name": "강남역",
+    "bus_number": "9201", 
     "message": "9201번 버스를 찾을 수 없습니다"
 }
 ```
 
-**에러 발생한 경우:**
-```json
-{
-    "timestamp": "2025-01-10T15:30:45.123456",
-    "error": "버스 정보 조회 실패: TAGO API 오류"
-}
-```
+### 📤 **앱에서 전송하는 이벤트들**
 
-#### `monitoring_stopped` - 모니터링 중단됨
-```json
-{
-    "message": "버스 모니터링이 중단되었습니다",
-    "session_id": "abc123def456"
-}
-```
+| 이벤트명 | 타이밍 | 매개변수 | 설명 |
+|---------|--------|----------|------|
+| `start_bus_monitoring` | 수동 | lat, lng, bus_number, interval | 실시간 모니터링 시작 |
+| `stop_bus_monitoring` | 수동 | 없음 | 모니터링 중단 |
+| `get_session_status` | 수동 | 없음 | 현재 상태 확인 |
 
-#### `session_status` - 세션 상태 응답
-```json
-{
-    "active": true,
-    "bus_number": "9201",
-    "interval": 30,
-    "session_id": "abc123def456"
-}
-```
+### 📥 **서버에서 전송하는 이벤트들**
 
-#### `error` - 에러 발생
-```json
-{
-    "message": "위도, 경도, 버스번호가 모두 필요합니다"
-}
-```
+| 이벤트명 | 타이밍 | 설명 |
+|---------|--------|------|
+| `connected` | 연결 시 자동 | 연결 완료 + session_id 제공 |
+| `monitoring_started` | start_bus_monitoring 응답 | 모니터링 시작 확인 |
+| `bus_update` | 30초마다 자동 | 실시간 버스 정보 |
+| `monitoring_stopped` | stop_bus_monitoring 응답 | 모니터링 중단 확인 |
+| `session_status` | get_session_status 응답 | 현재 세션 상태 |
+| `error` | 에러 발생 시 | 에러 메시지 |
 
 ---
 
@@ -157,15 +140,17 @@ Busz Backend은 실시간 버스 정보를 수집하고 가공하여 모바일 �
 
 ### POST `/api/station/buses` - 전체 버스 정보 조회
 
-**⚠️ 중요**: 플로우 1(WebSocket 모니터링)이 먼저 실행되어야 합니다!
+**⚠️ 중요 전제조건**: 
+1. WebSocket이 연결되어 있어야 함
+2. 플로우 1이 실행 중이어야 함 (`start_bus_monitoring` 이벤트 전송 완료)
 
 #### 📤 앱 → 서버 요청 형식
 ```http
 POST /api/station/buses
 Content-Type: application/json
-X-Session-ID: abc123def456
+X-Session-ID: abc123def456  ← WebSocket connected 이벤트에서 받은 session_id
 
-{}
+{}  ← 빈 JSON 객체 전송
 ```
 
 #### 📥 서버 → 앱 응답 형식
@@ -184,10 +169,10 @@ X-Session-ID: abc123def456
     "buses": [
         {
             "route_name": "9201",
-            "arrival_time": 180
+            "arrival_time": 180      // 초 단위
         },
         {
-            "route_name": "146",
+            "route_name": "146", 
             "arrival_time": 420
         }
     ],
@@ -200,70 +185,77 @@ X-Session-ID: abc123def456
 {
     "success": false,
     "error": "활성 모니터링 세션이 없습니다. 플로우 1을 먼저 시작해주세요.",
-    "error_code": "NO_ACTIVE_SESSION",
-    "timestamp": "2025-01-10T15:30:45.123456"
-}
-```
-
-**에러 응답 (503) - API 오류:**
-```json
-{
-    "success": false,
-    "error": "버스 정보 조회 실패: TAGO API 오류",
-    "error_code": "TAGO_API_ERROR",
-    "timestamp": "2025-01-10T15:30:45.123456"
+    "error_code": "NO_ACTIVE_SESSION"
 }
 ```
 
 ---
 
-## 📋 기타 엔드포인트
+## 💡 실제 사용 예시
 
-### GET `/` - 서버 상태 확인
-```json
-{
-    "success": true,
-    "message": "Busz Backend API 서버",
-    "status": "running",
-    "version": "v1.0.0",
-    "mobile_app_ready": true
-}
-```
+### 🔄 **안드로이드 구현 예시**
 
-### GET `/api` - API 정보
-```json
-{
-    "success": true,
-    "api_version": "v1.0.0",
-    "flows": {
-        "flow1": {
-            "type": "WebSocket",
-            "description": "특정 버스 실시간 모니터링"
-        },
-        "flow2": {
-            "type": "REST API", 
-            "description": "전체 버스 정보 조회 (세션 기반)"
+```kotlin
+class BusService {
+    private lateinit var socket: Socket
+    private var sessionId: String? = null
+    
+    // 1. WebSocket 연결
+    fun connectWebSocket() {
+        socket = IO.socket("https://your-server-url")
+        
+        // 자동으로 수신되는 이벤트들
+        socket.on("connected") { args ->
+            val data = args[0] as Map<String, Any>
+            sessionId = data["session_id"] as String
+            Log.d("Socket", "✅ 연결 완료, 세션 ID: $sessionId")
         }
+        
+        socket.on("monitoring_started") { args ->
+            Log.d("Socket", "✅ 모니터링 시작됨")
+        }
+        
+        socket.on("bus_update") { args ->
+            val data = args[0] as Map<String, Any>
+            processBusUpdate(data)
+        }
+        
+        socket.connect()
+    }
+    
+    // 2. 플로우 1: 실시간 모니터링 시작
+    fun startMonitoring(lat: Double, lng: Double, busNumber: String) {
+        val data = mapOf(
+            "lat" to lat,
+            "lng" to lng,
+            "bus_number" to busNumber,
+            "interval" to 30
+        )
+        
+        socket.emit("start_bus_monitoring", data)
+    }
+    
+    // 3. 플로우 2: 전체 버스 정보 조회
+    suspend fun getAllBuses(): List<Bus> {
+        val client = OkHttpClient()
+        val request = Request.Builder()
+            .url("https://your-server-url/api/station/buses")
+            .post("{}".toRequestBody("application/json".toMediaType()))
+            .addHeader("X-Session-ID", sessionId ?: "")
+            .build()
+            
+        val response = client.newCall(request).execute()
+        // JSON 파싱 후 버스 목록 반환
     }
 }
 ```
 
----
+### 📱 **추천 사용 패턴**
 
-## 💡 데이터 활용 가이드
-
-### 🔑 중요한 필드들
-
-- **session_id**: WebSocket 연결 시 받아서 REST API 헤더에 사용
-- **arrival_time**: 초 단위 (분 변환: `arrival_time / 60`)
-- **bus_found**: false면 다른 버스 추천 로직 실행
-
-### 📱 추천 사용 패턴
-
-1. **WebSocket 연결** → `session_id` 저장
-2. **플로우 1 시작** → 실시간 데이터 수신
-3. **필요시 플로우 2** → 전체 버스 목록 확인
-4. **적절한 시점에 모니터링 중단**
+1. **앱 시작 시**: WebSocket 연결 → `session_id` 저장
+2. **음성 인식 후**: `start_bus_monitoring` 전송
+3. **필요 시**: REST API로 전체 버스 목록 조회
+4. **앱 종료 시**: `stop_bus_monitoring` 전송
 
 ---
 
@@ -282,3 +274,16 @@ X-Session-ID: abc123def456
 ### 현재 제한사항
 - 서울 지역 서비스 제외 (BIS API 이슈)
 - TAGO API 키 필요 (공공데이터포털에서 발급)
+
+---
+
+## ❓ 자주 묻는 질문
+
+**Q: WebSocket 연결만 하면 자동으로 데이터가 오나요?**
+A: 아니요. 연결 시 `connected` 이벤트만 자동으로 오고, 실제 버스 정보를 받으려면 `start_bus_monitoring` 이벤트를 전송해야 합니다.
+
+**Q: 플로우 2를 사용하려면 반드시 플로우 1이 실행 중이어야 하나요?**
+A: 네, 플로우 2는 플로우 1에서 생성된 세션 정보를 활용합니다.
+
+**Q: session_id는 언제 받을 수 있나요?**
+A: WebSocket 연결 직후 `connected` 이벤트에서 자동으로 받을 수 있습니다.
