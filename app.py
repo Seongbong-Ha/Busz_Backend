@@ -1,12 +1,13 @@
-# app.py - Socket.IO 400 에러 해결 버전
-
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
 import json
+
 from config import Config
 from websocket import init_websocket_handlers
 from routes import register_routes
+from utils.constants import APP_VERSION, API_FLOWS, WEBSOCKET_EVENTS
+from utils.middleware import handle_before_request, handle_after_request, register_error_handlers
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -38,96 +39,12 @@ init_websocket_handlers(socketio)
 # REST API 라우트 등록
 register_routes(app)
 
-# ===================== 요청 전처리 =====================
+# 미들웨어 등록
+app.before_request(handle_before_request)
+app.after_request(handle_after_request)
 
-@app.before_request
-def handle_requests():
-    """모든 요청 전처리"""
-    print(f"📥 {request.method} {request.path}")
-    print(f"Host: {request.headers.get('host', 'Unknown')}")
-    print(f"User-Agent: {request.headers.get('user-agent', 'Unknown')}")
-    
-    # 모든 요청 허용 (임시 디버깅용)
-    print("✅ 모든 요청 허용")
-    return None
-
-# ===================== 에러 핸들러 수정 =====================
-
-@app.errorhandler(404)
-def not_found(error):
-    """404 에러 처리"""
-    # Socket.IO 요청은 제외
-    if request.path.startswith('/socket.io/'):
-        return None
-        
-    return jsonify({
-        'success': False,
-        'error': '요청한 엔드포인트를 찾을 수 없습니다',
-        'error_code': 'NOT_FOUND',
-        'path': request.path,
-        'available_endpoints': {
-            'websocket_test': '/test',
-            'station_buses': '/api/station/buses (POST)',
-            'api_info': '/api'
-        }
-    }), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    """500 에러 처리"""
-    return jsonify({
-        'success': False,
-        'error': '서버 내부 오류가 발생했습니다',
-        'error_code': 'INTERNAL_SERVER_ERROR'
-    }), 500
-
-# Werkzeug BadRequest 에러 핸들러 추가
-from werkzeug.exceptions import BadRequest
-
-@app.errorhandler(BadRequest)
-def handle_bad_request(e):
-    """Werkzeug BadRequest 에러 핸들러"""
-    print(f"🔧 Werkzeug 400 에러 우회: {request.path}")
-    print(f"User-Agent: {request.headers.get('user-agent', 'Unknown')}")
-    
-    # 모든 400 에러를 200 OK로 변환
-    return jsonify({
-        'success': True,
-        'message': 'Busz Backend API 서버 (400 우회)',
-        'status': 'running',
-        'path': request.path,
-        'bypassed': True
-    }), 200
-
-@app.errorhandler(400)
-def bad_request(error):
-    """일반 400 에러 핸들러"""
-    print(f"🔧 일반 400 에러 우회: {request.path}")
-    return jsonify({
-        'success': True,
-        'message': 'Busz Backend API 서버',
-        'status': 'running'
-    }), 200
-
-# ===================== 응답 후처리 =====================
-
-@app.after_request
-def after_request(response):
-    """모든 응답에 헤더 추가"""
-    # JSON 응답 타입 명시
-    if response.content_type and response.content_type.startswith('application/json'):
-        response.headers['Content-Type'] = 'application/json; charset=utf-8'
-    
-    # Socket.IO 응답은 그대로 통과
-    if request.path.startswith('/socket.io/'):
-        return response
-    
-    # 일반 HTTP 응답에만 캐시 제어 헤더 추가
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    
-    return response
+# 에러 핸들러 등록
+register_error_handlers(app)
 
 # ===================== 기본 라우트들 =====================
 
@@ -138,21 +55,10 @@ def home():
         'success': True,
         'message': 'Busz Backend API 서버',
         'status': 'running',
-        'version': 'v1.0.0',
+        'version': APP_VERSION,
         'request_method': request.method,
         'request_path': request.path,
-        'flows': {
-            'flow1': {
-                'name': 'WebSocket 실시간 모니터링',
-                'protocol': 'WebSocket',
-                'events': ['start_bus_monitoring', 'stop_bus_monitoring', 'get_session_status']
-            },
-            'flow2': {
-                'name': 'REST API 전체 버스 정보',
-                'protocol': 'HTTP/JSON',
-                'endpoints': ['/api/station/buses']
-            }
-        },
+        'flows': API_FLOWS,
         'mobile_app_ready': True
     })
 
@@ -166,24 +72,14 @@ def api_info():
     """API 정보"""
     return jsonify({
         'success': True,
-        'api_version': 'v1.0.0',
-        'socket_io_path': '/socket.io/',  # Socket.IO 경로 명시
+        'api_version': APP_VERSION,
+        'socket_io_path': '/socket.io/',
         'flows': {
             'flow1': {
                 'type': 'WebSocket',
                 'description': '특정 버스 실시간 모니터링',
                 'url': f'ws://{Config.HOST}:{Config.PORT}',
-                'events': {
-                    'start_bus_monitoring': {
-                        'description': '실시간 모니터링 시작',
-                        'parameters': {
-                            'lat': 'float - 위도',
-                            'lng': 'float - 경도', 
-                            'bus_number': 'string - 버스 번호',
-                            'interval': 'int - 업데이트 간격(초)'
-                        }
-                    }
-                }
+                'events': WEBSOCKET_EVENTS
             }
         }
     })

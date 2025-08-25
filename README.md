@@ -259,6 +259,45 @@ class BusService {
 
 ---
 
+## 📁 프로젝트 구조
+
+```
+Busz_Backend/
+├── 📄 app.py                    # 메인 애플리케이션 (리팩토링 완료)
+├── 📄 config.py                 # 설정 관리
+├── 📄 requirements.txt          # Python 의존성
+├── 📂 apis/                     # 외부 API 통신
+│   └── 📄 tago_api.py          # TAGO API 연동
+├── 📂 routes/                   # HTTP 라우트
+│   └── 📄 station_routes.py    # 정류장 관련 API
+├── 📂 services/                 # 비즈니스 로직
+│   └── 📄 station_services.py  # 정류장 서비스
+├── 📂 utils/                    # 유틸리티 (리팩토링 완료)
+│   ├── 📄 constants.py         # 상수 정의
+│   ├── 📄 exceptions.py        # 커스텀 예외
+│   ├── 📄 middleware.py        # 미들웨어 (새로 추가)
+│   └── 📄 response_formatter.py# 응답 포맷터
+├── 📂 websocket/                # WebSocket 처리
+│   ├── 📄 handlers.py          # 이벤트 핸들러
+│   ├── 📄 manager.py           # 세션 관리
+│   └── 📄 workers.py           # 백그라운드 작업
+└── 📂 templates/                # HTML 템플릿
+    └── 📄 websocket_test.html  # WebSocket 테스트 페이지
+```
+
+### 🔄 **최근 리팩토링 (v1.1.0)**
+
+#### ✨ **개선사항**
+- **코드 분리**: 메인 파일 60% 단축 (212 → 110 라인)
+- **상수 추출**: 하드코딩된 값들을 `constants.py`로 이동
+- **미들웨어 분리**: 에러 핸들링과 요청/응답 처리를 별도 모듈로 분리
+- **가독성 향상**: 더 명확한 코드 구조와 주석
+
+#### 🏗️ **아키텍처 개선**
+- **관심사 분리**: 설정, 미들웨어, 라우트, 비즈니스 로직 분리
+- **유지보수성**: 모듈화된 구조로 개별 컴포넌트 수정 용이
+- **확장성**: 새로운 기능 추가 시 기존 코드 영향 최소화
+
 ## 🔧 개발 환경
 
 ### 의존성
@@ -267,6 +306,39 @@ class BusService {
 - **Flask-SocketIO**: WebSocket 지원
 - **Flask-CORS**: 모바일 앱 연동
 - **requests**: HTTP API 호출
+- **python-dotenv**: 환경변수 관리
+
+### 설치 및 실행
+
+```bash
+# 1. 프로젝트 클론
+git clone <repository-url>
+cd Busz_Backend
+
+# 2. 가상환경 생성 및 활성화
+python -m venv Busz
+source Busz/bin/activate  # Linux/Mac
+# 또는
+Busz\Scripts\activate     # Windows
+
+# 3. 의존성 설치
+pip install -r requirements.txt
+
+# 4. 환경변수 설정
+cp .env.example .env
+# .env 파일에 TAGO API 키 입력
+
+# 5. 서버 실행
+python app.py
+```
+
+### 환경변수 설정
+```bash
+# .env 파일
+API_KEY=your_tago_api_key_here
+TAGO_BASE_URL=http://apis.data.go.kr/1613000
+FLASK_SECRET_KEY=your_secret_key_here
+```
 
 ### 사용 중인 외부 API
 - **TAGO API**: 전국 버스 정보 (서울 제외)

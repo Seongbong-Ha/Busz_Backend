@@ -20,3 +20,40 @@ BUS_ROUTE_TYPES = {
     '11': '공항버스',
     '12': '심야버스'
 }
+
+# 앱 상수
+APP_VERSION = 'v1.0.0'
+
+# API 정보
+API_FLOWS = {
+    'flow1': {
+        'name': 'WebSocket 실시간 모니터링',
+        'protocol': 'WebSocket',
+        'events': ['start_bus_monitoring', 'stop_bus_monitoring', 'get_session_status']
+    },
+    'flow2': {
+        'name': 'REST API 전체 버스 정보',
+        'protocol': 'HTTP/JSON',
+        'endpoints': ['/api/station/buses']
+    }
+}
+
+# 사용 가능한 엔드포인트
+AVAILABLE_ENDPOINTS = {
+    'websocket_test': '/test',
+    'station_buses': '/api/station/buses (POST)',
+    'api_info': '/api'
+}
+
+# WebSocket 이벤트 정의
+WEBSOCKET_EVENTS = {
+    'start_bus_monitoring': {
+        'description': '실시간 모니터링 시작',
+        'parameters': {
+            'lat': 'float - 위도',
+            'lng': 'float - 경도', 
+            'bus_number': 'string - 버스 번호',
+            'interval': 'int - 업데이트 간격(초)'
+        }
+    }
+}
